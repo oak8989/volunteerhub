@@ -582,13 +582,36 @@ function MemberEditModal({ user, onClose }: { user: User; onClose: () => void })
 }
 
 function AddMemberModal({ onClose }: { onClose: () => void }) {
-  const [form, setForm] = useState({ name: '', email: '', password: '', phone: '', title: 'Volunteer', role: 'member' as const });
+  const [form, setForm] = useState({ name: '', email: '', phone: '', title: 'Volunteer', role: 'member' as const });
+
+  const generatePassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%';
+    let password = '';
+    for (let i = 0; i < 12; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
+  };
 
   const handleAdd = (e: FormEvent) => {
     e.preventDefault();
-    store.addUser(form);
-    store.addEmail(form.email, 'Welcome!', `You've been added to ${store.getSettings().name}`);
-    showToast('Member added', 'success');
+    const password = generatePassword();
+    const newUser = store.addUser({ ...form, password });
+    const settings = store.getSettings();
+    const emailBody = `Welcome to ${settings.name}!
+
+Your account has been created. Here are your login credentials:
+
+Email: ${form.email}
+Password: ${password}
+
+Please sign in at the member portal and change your password after your first login.
+
+Best regards,
+${settings.name} Team`;
+    
+    store.addEmail(form.email, `Welcome to ${settings.name} - Your Login Credentials`, emailBody);
+    showToast(`Member added! Password sent to ${form.email}`, 'success');
     onClose();
   };
 
@@ -597,8 +620,10 @@ function AddMemberModal({ onClose }: { onClose: () => void }) {
       <form onSubmit={handleAdd} className="space-y-4">
         <div><label className="block text-sm font-medium mb-1">Name</label><input value={form.name} onChange={e => setForm({...form, name: e.target.value})} required /></div>
         <div><label className="block text-sm font-medium mb-1">Email</label><input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} required /></div>
-        <div><label className="block text-sm font-medium mb-1">Password</label><input type="password" value={form.password} onChange={e => setForm({...form, password: e.target.value})} required minLength={6} /></div>
         <div><label className="block text-sm font-medium mb-1">Phone</label><input value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} /></div>
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
+          A secure random password will be generated and sent to the member's email address.
+        </div>
         <div className="flex justify-end gap-3 pt-4 border-t">
           <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
           <button type="submit" className="btn-primary">Add Member</button>
