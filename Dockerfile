@@ -27,16 +27,12 @@ COPY nginx.conf /etc/nginx/nginx.conf
 # Copy built assets from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Create non-root user for nginx
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nginx -u 1001
-
-# Set proper permissions
-RUN chown -R nginx:nodejs /usr/share/nginx/html && \
-    chown -R nginx:nodejs /var/cache/nginx && \
-    chown -R nginx:nodejs /var/log/nginx && \
+# Set proper permissions for nginx user (already exists in nginx:alpine)
+RUN chown -R nginx:nginx /usr/share/nginx/html && \
+    chown -R nginx:nginx /var/cache/nginx && \
+    chown -R nginx:nginx /var/log/nginx && \
     touch /var/run/nginx.pid && \
-    chown -R nginx:nodejs /var/run/nginx.pid
+    chown -R nginx:nginx /var/run/nginx.pid
 
 # Expose port
 EXPOSE 80
