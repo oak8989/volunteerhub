@@ -33,7 +33,7 @@ export default function Auth() {
     setLoading(false);
   };
 
-  const handleRegister = (e: FormEvent) => {
+  const handleRegister = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
     const users = store.getUsers();
@@ -44,19 +44,31 @@ export default function Auth() {
     }
     const user = store.addUser({ email, password, name, phone });
     store.setCurrentUser(user.id);
-    store.addEmail(email, 'Welcome to ' + settings.name, `Welcome ${name}! Your account has been created.`);
-    showToast('Account created successfully!', 'success');
+    
+    const emailResult = await store.addEmail(email, 'Welcome to ' + settings.name, `Welcome ${name}! Your account has been created.`);
+    
+    if (emailResult.status === 'delivered') {
+      showToast('Account created! Welcome email sent.', 'success');
+    } else {
+      showToast('Account created, but email delivery failed. Please check SMTP settings.', 'info');
+    }
+    
     navigate('/member');
     setLoading(false);
   };
 
-  const handleReset = (e: FormEvent) => {
+  const handleReset = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
     const user = store.getUsers().find(u => u.email === email);
     if (user) {
-      store.addEmail(email, 'Password Reset', `Click here to reset your password. Link expires in 1 hour.`);
-      showToast('Reset link sent to your email', 'success');
+      const emailResult = await store.addEmail(email, 'Password Reset', `Click here to reset your password. Link expires in 1 hour.`);
+      
+      if (emailResult.status === 'delivered') {
+        showToast('Reset link sent to your email', 'success');
+      } else {
+        showToast('Failed to send reset email. Please check SMTP settings.', 'error');
+      }
     } else {
       showToast('Email not found', 'error');
     }
