@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import { X, Check, AlertCircle, Info, Menu } from 'lucide-react';
 
 // ============ TOAST SYSTEM ============
@@ -43,7 +44,7 @@ export function ToastContainer() {
 }
 
 // ============ MODAL ============
-export function Modal({ open, onClose, title, children, size = 'md' }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode; size?: 'sm' | 'md' | 'lg' }) {
+export function Modal({ open, onClose, title, children, size = 'md' }: { open: boolean; onClose: () => void; title: string; children: ReactNode; size?: 'sm' | 'md' | 'lg' }) {
   if (!open) return null;
   const widths = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl' };
   return (
@@ -63,9 +64,7 @@ export function Modal({ open, onClose, title, children, size = 'md' }: { open: b
 // ============ COUNT UP ============
 export function CountUp({ end, duration = 2000, suffix = '', prefix = '' }: { end: number; duration?: number; suffix?: string; prefix?: string }) {
   const [value, setValue] = useState(0);
-  const ref = useRef<HTMLSpanElement>(null);
   useEffect(() => {
-    let start = 0;
     const startTime = Date.now();
     const timer = setInterval(() => {
       const elapsed = Date.now() - startTime;
@@ -76,7 +75,7 @@ export function CountUp({ end, duration = 2000, suffix = '', prefix = '' }: { en
     }, 16);
     return () => clearInterval(timer);
   }, [end, duration]);
-  return <span ref={ref}>{prefix}{value.toLocaleString()}{suffix}</span>;
+  return <span>{prefix}{value.toLocaleString()}{suffix}</span>;
 }
 
 // ============ PROGRESS RING ============
@@ -150,7 +149,7 @@ export function ConfirmDialog({ open, onClose, onConfirm, title, message, confir
 }
 
 // ============ EMPTY STATE ============
-export function EmptyState({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
+export function EmptyState({ icon, title, description }: { icon: ReactNode; title: string; description: string }) {
   return (
     <div className="text-center py-12">
       <div className="text-4xl mb-3 opacity-50">{icon}</div>
@@ -170,7 +169,7 @@ export function MobileMenuButton({ onClick }: { onClick: () => void }) {
 }
 
 // ============ TABS ============
-export function Tabs({ tabs, active, onChange }: { tabs: { id: string; label: string; icon?: React.ReactNode }[]; active: string; onChange: (id: string) => void }) {
+export function Tabs({ tabs, active, onChange }: { tabs: { id: string; label: string; icon?: ReactNode }[]; active: string; onChange: (id: string) => void }) {
   return (
     <div className="flex gap-1 bg-gray-100 p-1 rounded-lg overflow-x-auto">
       {tabs.map(tab => (
@@ -183,38 +182,41 @@ export function Tabs({ tabs, active, onChange }: { tabs: { id: string; label: st
 }
 
 // ============ QR CODE (Simple visual) ============
-export function QRCode({ value, size = 200 }: { value: string; size?: number }) {
-  const canvas = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    if (!canvas.current) return;
-    const ctx = canvas.current.getContext('2d');
-    if (!ctx) return;
-    const cellSize = size / 25;
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, size, size);
-    ctx.fillStyle = '#1a3a2a';
-    // Generate deterministic pattern from value
-    let hash = 0;
-    for (let i = 0; i < value.length; i++) hash = ((hash << 5) - hash) + value.charCodeAt(i);
-    for (let row = 0; row < 25; row++) {
-      for (let col = 0; col < 25; col++) {
-        const seed = (hash * (row * 25 + col + 1)) & 0xFFFF;
-        if (seed % 3 === 0 || (row < 7 && col < 7) || (row < 7 && col > 17) || (row > 17 && col < 7)) {
-          // Position markers
-          if ((row < 7 && col < 7) || (row < 7 && col > 17) || (row > 17 && col < 7)) {
-            const isOuter = row === 0 || row === 6 || col === 0 || col === 6 || (row > 17 ? row === 18 || row === 24 : false) || (col > 17 ? col === 18 || col === 24 : false);
-            const isInner = (row >= 2 && row <= 4 && col >= 2 && col <= 4) || (row >= 2 && row <= 4 && col >= 20 && col <= 22) || (row >= 20 && row <= 22 && col >= 2 && col <= 4);
-            if (isOuter || isInner) {
-              ctx.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
-            }
-          } else {
+function drawQR(canvas: HTMLCanvasElement, value: string, size: number) {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  const cellSize = size / 25;
+  ctx.fillStyle = 'white';
+  ctx.fillRect(0, 0, size, size);
+  ctx.fillStyle = '#1a3a2a';
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) hash = ((hash << 5) - hash) + value.charCodeAt(i);
+  for (let row = 0; row < 25; row++) {
+    for (let col = 0; col < 25; col++) {
+      const seed = (hash * (row * 25 + col + 1)) & 0xFFFF;
+      if (seed % 3 === 0 || (row < 7 && col < 7) || (row < 7 && col > 17) || (row > 17 && col < 7)) {
+        if ((row < 7 && col < 7) || (row < 7 && col > 17) || (row > 17 && col < 7)) {
+          const isOuter = row === 0 || row === 6 || col === 0 || col === 6 || (row > 17 ? row === 18 || row === 24 : false) || (col > 17 ? col === 18 || col === 24 : false);
+          const isInner = (row >= 2 && row <= 4 && col >= 2 && col <= 4) || (row >= 2 && row <= 4 && col >= 20 && col <= 22) || (row >= 20 && row <= 22 && col >= 2 && col <= 4);
+          if (isOuter || isInner) {
             ctx.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
           }
+        } else {
+          ctx.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
         }
       }
     }
-  }, [value, size]);
-  return <canvas ref={canvas} width={size} height={size} className="rounded-lg border" />;
+  }
+}
+
+export function QRCode({ value, size = 200 }: { value: string; size?: number }) {
+  const setCanvasRef = (canvas: HTMLCanvasElement | null) => {
+    if (canvas) {
+      drawQR(canvas, value, size);
+    }
+  };
+
+  return <canvas ref={setCanvasRef} width={size} height={size} className="rounded-lg border" />;
 }
 
 // ============ ACTIVITY TICKER ============

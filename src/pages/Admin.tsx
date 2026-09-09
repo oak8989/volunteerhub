@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { store, formatDateTime, formatDate, formatTime, getHoursBetween, timeAgo, type User, type Event as EventType } from '../store';
 import { showToast, Modal, ConfirmDialog, CountUp, LiveTimer, EmptyState, Tabs, QRCode } from '../components/UI';
@@ -364,7 +365,7 @@ function EventFormModal({ event, onClose }: { event: EventType | null; onClose: 
     allowedGroups: event?.allowedGroups || [],
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (event) {
       store.updateEvent(event.id, { ...form, startTime: new Date(form.startTime).toISOString(), endTime: new Date(form.endTime).toISOString() });
@@ -583,7 +584,7 @@ function MemberEditModal({ user, onClose }: { user: User; onClose: () => void })
 function AddMemberModal({ onClose }: { onClose: () => void }) {
   const [form, setForm] = useState({ name: '', email: '', password: '', phone: '', title: 'Volunteer', role: 'member' as const });
 
-  const handleAdd = (e: React.FormEvent) => {
+  const handleAdd = (e: FormEvent) => {
     e.preventDefault();
     store.addUser(form);
     store.addEmail(form.email, 'Welcome!', `You've been added to ${store.getSettings().name}`);
@@ -800,7 +801,7 @@ function SettingsView() {
   ];
 
   const logoOptions = ['leaf', 'tree', 'mountain', 'sun'];
-  const logoIcons: Record<string, React.ReactNode> = { leaf: <Leaf size={20} />, tree: <TreePine size={20} />, mountain: <Mountain size={20} />, sun: <Sun size={20} /> };
+  const logoIcons: Record<string, ReactNode> = { leaf: <Leaf size={20} />, tree: <TreePine size={20} />, mountain: <Mountain size={20} />, sun: <Sun size={20} /> };
   const themeColors = ['emerald', 'blue', 'purple', 'rose', 'amber', 'teal'];
 
   return (
@@ -1057,7 +1058,7 @@ function ActivityView() {
 
   const filtered = filter === 'all' ? activities : activities.filter(a => a.type === filter);
 
-  const typeIcons: Record<string, React.ReactNode> = {
+  const typeIcons: Record<string, ReactNode> = {
     'check-in': <UserCheck size={14} className="text-green-500" />,
     'check-out': <Clock size={14} className="text-blue-500" />,
     'registration': <Calendar size={14} className="text-purple-500" />,

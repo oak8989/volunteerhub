@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import type { FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { store } from '../store';
 import { showToast } from '../components/UI';
@@ -17,7 +18,7 @@ export default function Auth() {
 
   const settings = store.getSettings();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
     const user = store.authenticate(email, password);
@@ -32,7 +33,7 @@ export default function Auth() {
     setLoading(false);
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
     const users = store.getUsers();
@@ -49,7 +50,7 @@ export default function Auth() {
     setLoading(false);
   };
 
-  const handleReset = (e: React.FormEvent) => {
+  const handleReset = (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
     const user = store.getUsers().find(u => u.email === email);
