@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  volunteerhub-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: volunteerhub-dev
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true
+    command: npm run dev
+    restart: unless-stopped
+    networks:
+      - volunteerhub-dev-network
+
+networks:
+  volunteerhub-dev-network:
+    driver: bridge

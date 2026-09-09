@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  volunteerhub:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: volunteerhub-app
+    ports:
+      - "8080:80"
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - volunteerhub-network
+    labels:
+      - "com.volunteerhub.description=Volunteer Management Platform"
+      - "com.volunteerhub.version=1.0.0"
+
+networks:
+  volunteerhub-network:
+    driver: bridge

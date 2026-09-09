@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { store, formatDateTime, formatDate, formatTime, getHoursBetween, timeAgo, type User, type Event as EventType } from '../store';
 import { showToast, Modal, ConfirmDialog, CountUp, LiveTimer, EmptyState, Tabs, QRCode } from '../components/UI';
@@ -364,7 +365,7 @@ function EventFormModal({ event, onClose }: { event: EventType | null; onClose: 
     allowedGroups: event?.allowedGroups || [],
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (event) {
       store.updateEvent(event.id, { ...form, startTime: new Date(form.startTime).toISOString(), endTime: new Date(form.endTime).toISOString() });
@@ -581,13 +582,42 @@ function MemberEditModal({ user, onClose }: { user: User; onClose: () => void })
 }
 
 function AddMemberModal({ onClose }: { onClose: () => void }) {
-  const [form, setForm] = useState({ name: '', email: '', password: '', phone: '', title: 'Volunteer', role: 'member' as const });
+  const [form, setForm] = useState({ name: '', email: '', phone: '', title: 'Volunteer', role: 'member' as const });
 
-  const handleAdd = (e: React.FormEvent) => {
+  const generatePassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%';
+    let password = '';
+    for (let i = 0; i < 12; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
+  };
+
+  const handleAdd = async (e: FormEvent) => {
     e.preventDefault();
-    store.addUser(form);
-    store.addEmail(form.email, 'Welcome!', `You've been added to ${store.getSettings().name}`);
-    showToast('Member added', 'success');
+    const password = generatePassword();
+    const newUser = store.addUser({ ...form, password });
+    const settings = store.getSettings();
+    const emailBody = `Welcome to ${settings.name}!
+
+Your account has been created. Here are your login credentials:
+
+Email: ${form.email}
+Password: ${password}
+
+Please sign in at the member portal and change your password after your first login.
+
+Best regards,
+${settings.name} Team`;
+    
+    const emailResult = await store.addEmail(form.email, `Welcome to ${settings.name} - Your Login Credentials`, emailBody);
+    
+    if (emailResult.status === 'delivered') {
+      showToast(`Member added! Password sent to ${form.email}`, 'success');
+    } else {
+      showToast(`Member added, but email failed. Check SMTP settings.`, 'info');
+    }
+    
     onClose();
   };
 
@@ -596,8 +626,10 @@ function AddMemberModal({ onClose }: { onClose: () => void }) {
       <form onSubmit={handleAdd} className="space-y-4">
         <div><label className="block text-sm font-medium mb-1">Name</label><input value={form.name} onChange={e => setForm({...form, name: e.target.value})} required /></div>
         <div><label className="block text-sm font-medium mb-1">Email</label><input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} required /></div>
-        <div><label className="block text-sm font-medium mb-1">Password</label><input type="password" value={form.password} onChange={e => setForm({...form, password: e.target.value})} required minLength={6} /></div>
         <div><label className="block text-sm font-medium mb-1">Phone</label><input value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} /></div>
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
+          A secure random password will be generated and sent to the member's email address.
+        </div>
         <div className="flex justify-end gap-3 pt-4 border-t">
           <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
           <button type="submit" className="btn-primary">Add Member</button>
@@ -775,18 +807,43 @@ function SettingsView() {
     showToast('Medal tiers updated', 'success');
   };
 
-  const handleTestEmail = () => {
-    store.addEmail(form.smtpFrom || 'test@test.com', 'Test Email', 'This is a test email from VolunteerHub.');
-    showToast('Test email sent', 'success');
+  const handleTestEmail = async () => {
+    if (!form.smtpHost || !form.smtpUser || !form.smtpPass) {
+      showToast('Please configure SMTP settings first', 'error');
+      return;
+    }
+    
+    showToast('Sending test email...', 'info');
+    const emailResult = await store.addEmail(
+      form.smtpFrom || form.smtpUser, 
+      'Test Email from VolunteerHub', 
+      `This is a test email to verify your SMTP configuration.\n\nSMTP Host: ${form.smtpHost}\nSMTP Port: ${form.smtpPort}\nFrom: ${form.smtpFrom || form.smtpUser}`
+    );
+    
+    if (emailResult.status === 'delivered') {
+      showToast('Test email sent successfully!', 'success');
+    } else {
+      showToast('Test email failed. Check your SMTP settings.', 'error');
+    }
   };
 
-  const handleRefreshSmtp = () => {
-    if (form.smtpHost) {
+  const handleRefreshSmtp = async () => {
+    if (!form.smtpHost || !form.smtpUser || !form.smtpPass) {
+      store.updateSettings({ smtpStatus: 'offline' });
+      showToast('No SMTP configured', 'info');
+      return;
+    }
+    
+    // Import email service to test connection
+    const { emailService } = await import('../services/emailService');
+    const isConnected = await emailService.testConnection();
+    
+    if (isConnected) {
       store.updateSettings({ smtpStatus: 'online' });
       showToast('SMTP connection verified', 'success');
     } else {
-      store.updateSettings({ smtpStatus: 'offline' });
-      showToast('No SMTP configured', 'info');
+      store.updateSettings({ smtpStatus: 'unreachable' });
+      showToast('SMTP connection failed', 'error');
     }
   };
 
@@ -800,7 +857,7 @@ function SettingsView() {
   ];
 
   const logoOptions = ['leaf', 'tree', 'mountain', 'sun'];
-  const logoIcons: Record<string, React.ReactNode> = { leaf: <Leaf size={20} />, tree: <TreePine size={20} />, mountain: <Mountain size={20} />, sun: <Sun size={20} /> };
+  const logoIcons: Record<string, ReactNode> = { leaf: <Leaf size={20} />, tree: <TreePine size={20} />, mountain: <Mountain size={20} />, sun: <Sun size={20} /> };
   const themeColors = ['emerald', 'blue', 'purple', 'rose', 'amber', 'teal'];
 
   return (
@@ -895,12 +952,27 @@ function SettingsView() {
 
         {tab === 'email' && (
           <div className="card space-y-4">
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-start gap-2">
+                <AlertTriangle size={20} className="text-blue-600 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-800">
+                  <p className="font-semibold mb-1">Email Delivery Mode</p>
+                  <p className="mb-2">This is a <strong>frontend simulation</strong>. Emails show as "delivered" but are not actually sent. For real email delivery, you need to:</p>
+                  <ul className="list-disc list-inside space-y-1 text-xs">
+                    <li>Set up a backend API service with SMTP support (e.g., Node.js + Nodemailer)</li>
+                    <li>Or integrate with an email service API (SendGrid, Mailgun, Amazon SES)</li>
+                    <li>See <code className="bg-blue-100 px-1 rounded">EMAIL_SETUP.md</code> for detailed instructions</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            
             <div className="flex items-center justify-between">
               <h2 className="font-semibold">Email / SMTP Configuration</h2>
               <div className="flex items-center gap-2">
-                <span className={`w-3 h-3 rounded-full ${form.smtpStatus === 'online' ? 'bg-green-500' : 'bg-red-500'}`} />
+                <span className={`w-3 h-3 rounded-full ${form.smtpStatus === 'online' ? 'bg-green-500' : form.smtpStatus === 'unreachable' ? 'bg-red-500' : 'bg-gray-400'}`} />
                 <span className="text-sm capitalize">{form.smtpStatus}</span>
-                <button onClick={handleRefreshSmtp} className="p-1 hover:bg-gray-100 rounded"><RefreshCw size={14} /></button>
+                <button onClick={handleRefreshSmtp} className="p-1 hover:bg-gray-100 rounded" title="Test SMTP connection"><RefreshCw size={14} /></button>
               </div>
             </div>
             <div className="grid md:grid-cols-2 gap-4">
@@ -917,17 +989,42 @@ function SettingsView() {
             {/* Outbox */}
             <div className="mt-6">
               <h3 className="font-medium mb-3">Email Outbox</h3>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {store.getEmails().slice(0, 10).map(email => (
-                  <div key={email.id} className="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
-                    <div>
-                      <span className="font-medium">{email.subject}</span>
-                      <span className="text-gray-500 ml-2">→ {email.to}</span>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {store.getEmails().slice(0, 20).map(email => (
+                  <div key={email.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg text-sm">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{email.subject}</span>
+                        <span className={`badge ${email.status === 'delivered' ? 'badge-success' : email.status === 'failed' ? 'bg-red-50 text-red-600' : 'bg-yellow-50 text-yellow-600'}`}>
+                          {email.status === 'delivered' && '✓ '}
+                          {email.status === 'failed' && '✗ '}
+                          {email.status === 'queued' && '⏳ '}
+                          {email.status}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        To: {email.to} • {new Date(email.createdAt).toLocaleString()}
+                      </div>
                     </div>
-                    <span className={`badge ${email.status === 'delivered' ? 'badge-success' : email.status === 'failed' ? 'bg-red-50 text-red-600' : 'bg-yellow-50 text-yellow-600'}`}>{email.status}</span>
+                    {email.status === 'failed' && (
+                      <button 
+                        onClick={async () => {
+                          showToast('Retrying email...', 'info');
+                          const result = await store.addEmail(email.to, email.subject, email.body);
+                          if (result.status === 'delivered') {
+                            showToast('Email sent successfully!', 'success');
+                          } else {
+                            showToast('Email still failed. Check SMTP settings.', 'error');
+                          }
+                        }}
+                        className="ml-2 px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                      >
+                        Retry
+                      </button>
+                    )}
                   </div>
                 ))}
-                {store.getEmails().length === 0 && <p className="text-sm text-gray-500">No emails sent yet</p>}
+                {store.getEmails().length === 0 && <p className="text-sm text-gray-500 text-center py-4">No emails sent yet</p>}
               </div>
             </div>
           </div>
@@ -1057,7 +1154,7 @@ function ActivityView() {
 
   const filtered = filter === 'all' ? activities : activities.filter(a => a.type === filter);
 
-  const typeIcons: Record<string, React.ReactNode> = {
+  const typeIcons: Record<string, ReactNode> = {
     'check-in': <UserCheck size={14} className="text-green-500" />,
     'check-out': <Clock size={14} className="text-blue-500" />,
     'registration': <Calendar size={14} className="text-purple-500" />,

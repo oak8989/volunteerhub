@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { store, formatDateTime, timeAgo } from '../store';
 import { LiveClock, CountUp, ActivityTicker, showToast } from '../components/UI';
@@ -52,7 +53,7 @@ export default function Landing() {
     setRegEvent(null);
   };
 
-  const logoIcons: Record<string, React.ReactNode> = {
+  const logoIcons: Record<string, ReactNode> = {
     leaf: <Leaf size={32} className="text-white" />,
     tree: <TreePine size={32} className="text-white" />,
     mountain: <Mountain size={32} className="text-white" />,

@@ -477,21 +477,45 @@ class Store {
     return stored ? JSON.parse(stored) : [];
   }
 
-  addEmail(to: string, subject: string, body: string): EmailMessage {
+  async addEmail(to: string, subject: string, body: string): Promise<EmailMessage> {
     const emails = this.getEmails();
     const email: EmailMessage = {
       id: uuidv4(),
       to,
       subject,
       body,
-      status: 'delivered',
+      status: 'queued',
       createdAt: new Date().toISOString(),
     };
     emails.unshift(email);
     localStorage.setItem('vh_emails', JSON.stringify(emails));
-    this.addActivity({ type: 'email', message: `Email sent to ${to}: ${subject}` });
     this.notify();
-    return email;
+
+    // Import email service dynamically to avoid circular dependency
+    const { emailService } = await import('./services/emailService');
+    
+    // Attempt to send email
+    const result = await emailService.sendEmail(to, subject, body);
+    
+    // Update email status based on result
+    const updatedEmails = this.getEmails();
+    const emailIndex = updatedEmails.findIndex(e => e.id === email.id);
+    if (emailIndex >= 0) {
+      updatedEmails[emailIndex].status = result.success ? 'delivered' : 'failed';
+      localStorage.setItem('vh_emails', JSON.stringify(updatedEmails));
+    }
+
+    const statusMessage = result.success 
+      ? `Email sent to ${to}: ${subject}`
+      : `Email failed to ${to}: ${result.error || 'Unknown error'}`;
+    
+    this.addActivity({ 
+      type: 'email', 
+      message: statusMessage 
+    });
+    this.notify();
+    
+    return updatedEmails[emailIndex] || email;
   }
 
   // Seed data
